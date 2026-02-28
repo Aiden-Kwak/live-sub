@@ -25,8 +25,11 @@ tools:
 
 1. `CLAUDE.md` — 프로젝트 개요, 기술 스택, **누적 교훈** 확인
 2. `docs/requirements.md` — 기능 요구사항
-3. `docs/api-spec.md` — 연동할 API 스펙 (타입 정의 기반)
-4. `docs/dev-plan.md` — 구현 순서 및 태스크
+3. `docs/service-flow.md` — 서비스 플로우 (API 호출 순서 파악용)
+4. `docs/api-spec.md` — 연동할 API 스펙 (사람 읽기용)
+5. `docs/api-spec.json` — API JSON 스펙 (타입 정의 기반, 필드/타입 정확한 참조용)
+6. `docs/data-model.json` — 데이터 모델 JSON (응답 필드 참조용)
+7. `docs/dev-plan.md` — 구현 순서 및 태스크
 
 > ⚠️ `CLAUDE.md`의 `## 누적 교훈`을 반드시 읽고 이전 실수를 반복하지 마세요.
 
@@ -36,7 +39,7 @@ tools:
 
 기획문서에 정의된 기능 요구사항으로 다음을 구현합니다:
 
-- Next.js 14 App Router 프로젝트 초기화
+- Next.js 15 App Router 프로젝트 초기화
 - API 타입 정의 및 클라이언트 (`src/lib/api.ts`)
 - 기능별 컴포넌트 구현
 - 페이지 구성
@@ -44,7 +47,7 @@ tools:
 
 ---
 
-## Next.js 14 구현 가이드
+## Next.js 15 구현 가이드
 
 ### 표준 구현 순서
 
@@ -102,7 +105,7 @@ tools:
 
 ## 교훈 기록 (작업 완료 후)
 
-다음 상황에서 `CLAUDE.md`의 `## 누적 교훈`에 기록하세요:
+다음 상황에서 `docs/lessons-frontend.md`에 기록하세요 (병렬 실행 시 CLAUDE.md 동시 쓰기 충돌 방지):
 
 - `npm run build` 실패 패턴 및 해결 방법
 - TypeScript 타입 오류의 공통 원인

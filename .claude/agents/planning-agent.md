@@ -28,8 +28,12 @@ tools:
 
 1. `CLAUDE.md` — 프로젝트 개요, **누적 교훈** 확인
 2. `docs/requirements.md` — 원래 요구사항
-3. `docs/api-spec.md` — API 스펙
-4. `docs/data-model.md` — 데이터 모델
+3. `docs/service-flow.md` — 서비스 플로우 (mermaid 다이어그램)
+4. `docs/api-spec.md` — API 스펙 + 프로시저
+5. `docs/api-spec.json` — API JSON 스펙
+6. `docs/data-model.md` — 데이터 모델
+7. `docs/data-model.json` — 데이터 모델 JSON 스펙
+8. `docs/flow-validation-report.md` — 플로우 정합성 검증 결과 (있을 경우)
 
 > ⚠️ `CLAUDE.md`의 `## 누적 교훈`을 읽고 이전 실수를 반영하여 태스크를 구성하세요.
 
@@ -37,9 +41,11 @@ tools:
 
 ## 역할
 
-- 설계 문서를 기반으로 구현 태스크 세분화
+- 설계 문서(md + json)를 기반으로 구현 태스크 세분화
+- `docs/api-spec.json`, `docs/data-model.json`을 참조하여 정확한 태스크 범위 산정
 - 태스크 간 의존성 파악 및 병렬 실행 가능 구간 식별
 - `docs/dev-plan.md` 작성
+- flow-validation-report.md에 FAIL 항목이 있으면 수정 태스크를 우선 등록
 
 ---
 
