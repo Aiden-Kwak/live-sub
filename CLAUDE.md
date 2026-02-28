@@ -26,27 +26,37 @@
 ## 에이전트 역할 및 개발 워크플로우
 
 ```
-[1] design-agent    →  docs/requirements.md 읽기
-                    →  docs/api-spec.md, docs/data-model.md 생성
+[1] design-agent         →  docs/requirements.md 읽기
+                         →  docs/service-flow.md (mermaid 필수)
+                         →  docs/api-spec.md + 프로시저, docs/data-model.md
+                         →  docs/api-spec.json, docs/data-model.json 생성
          ↓
-[2] planning-agent  →  설계 문서 읽기
-                    →  개발 태스크 등록 (TaskCreate) + docs/dev-plan.md 생성
+[1.5] flow-validator     →  설계 문서 간 정합성 검증
+                         →  docs/flow-validation-report.md 생성
+                         →  FAIL 시 design-agent 재호출
          ↓
-[3] db-agent        →  설계 문서 + dev-plan 읽기 → 백엔드/DB 구현
-    frontend-agent  →  설계 문서 + dev-plan 읽기 → 프론트엔드 구현  (병렬 가능)
+[2] planning-agent       →  설계 문서(md + json) 읽기
+                         →  개발 태스크 등록 (TaskCreate) + docs/dev-plan.md 생성
          ↓
-[4] qa-agent        →  전체 검증 + docs/qa-report.md 생성
-                    →  발견된 교훈을 CLAUDE.md ## 누적 교훈에 기록
+[3] db-agent             →  설계 문서 + dev-plan 읽기 → 백엔드/DB 구현
+    frontend-agent       →  설계 문서 + dev-plan 읽기 → 프론트엔드 구현  (병렬 가능)
+         ↓
+[4] qa-agent             →  코드 리뷰 + 테스트 작성
+                         →  curl E2E 테스트 (서비스 플로우 기반)
+                         →  프론트-백 데이터 계약 검증
+                         →  docs/qa-report.md 생성
+                         →  발견된 교훈을 CLAUDE.md ## 누적 교훈에 기록
 ```
 
 ### 에이전트 호출 방법
 
 ```
-Task(subagent_type: "design-agent",   prompt: "...")
-Task(subagent_type: "planning-agent", prompt: "...")
-Task(subagent_type: "db-agent",       prompt: "...")
-Task(subagent_type: "frontend-agent", prompt: "...")
-Task(subagent_type: "qa-agent",       prompt: "...")
+Task(subagent_type: "design-agent",          prompt: "...")
+Task(subagent_type: "flow-validator-agent",  prompt: "...")
+Task(subagent_type: "planning-agent",        prompt: "...")
+Task(subagent_type: "db-agent",              prompt: "...")
+Task(subagent_type: "frontend-agent",        prompt: "...")
+Task(subagent_type: "qa-agent",              prompt: "...")
 ```
 
 ### 병렬 실행 (독립적인 작업은 한 번에)
@@ -141,8 +151,22 @@ Task(frontend-agent, run_in_background: true)
 
 ### 4 — Git
 
-- **GH-1 (MUST)** Conventional Commits 형식 사용: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`.
+- **GH-1 (MUST)** Conventional Commits 형식 사용 (scope 포함):
+  ```
+  <type>(<scope>): <description>
+
+  type:  feat | fix | docs | refactor | test | chore
+  scope: backend | frontend | design | qa | infra
+  ```
+  예시: `feat(backend): 주문 API CRUD 구현`, `docs(design): API 스펙 및 서비스 플로우 설계`
 - **GH-2 (SHOULD NOT)** 커밋 메시지에 Claude 또는 Anthropic 언급 금지.
+- **GH-3 (MUST)** main 브랜치 단일 운영. 별도 feature 브랜치 생성 금지.
+- **GH-4 (MUST)** 파이프라인 중간 커밋은 체크포인트 용도로 생성하되, push는 QA 통과 후 1회만.
+- **GH-5 (MUST)** 파이프라인 커밋 순서:
+  1. `docs(design): ...` — 설계 완료 후
+  2. `feat(backend): ...` + `feat(frontend): ...` — 구현 완료 후
+  3. `test(qa): ...` — QA 완료 후
+  4. `git push` — 최종 1회
 
 ---
 

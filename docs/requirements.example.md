@@ -17,10 +17,10 @@
 
 | 레이어 | 기술 | 비고 |
 |--------|------|------|
-| Frontend | Next.js 14 (App Router) + TailwindCSS + TypeScript | 또는 다른 프레임워크로 변경 가능 |
-| Backend | Python 3.11+ + Django 5.x + Django REST Framework | 또는 FastAPI, Express 등 |
+| Frontend | Next.js 15 (App Router) + TailwindCSS + TypeScript | 또는 다른 프레임워크로 변경 가능 |
+| Backend | Python 3.11+ + Django 5.2 + Django REST Framework | 또는 FastAPI, Express 등 |
 | Database | PostgreSQL 15+ | 또는 MySQL, SQLite |
-| 패키지 관리 | pip + venv (backend), npm (frontend) | |
+| 패키지 관리 | uv (backend), npm (frontend) | CLAUDE.md PY-2 규칙 참조 |
 
 ---
 
@@ -45,6 +45,26 @@ DB:       [DB명] (localhost:5432)
 | created_at | DateTime | auto | 생성일시 |
 | updated_at | DateTime | auto | 수정일시 |
 
+또는 JSON 형식으로 정의할 수 있습니다:
+
+```json
+{
+  "entities": [
+    {
+      "name": "모델명",
+      "fields": [
+        { "name": "id", "type": "uuid", "primary_key": true },
+        { "name": "title", "type": "string", "max_length": 200, "required": true },
+        { "name": "created_at", "type": "datetime", "auto": true }
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "Post", "to": "User", "type": "many_to_one", "field": "author" }
+  ]
+}
+```
+
 ---
 
 ## 5. API 엔드포인트
@@ -60,7 +80,31 @@ DELETE /api/[리소스]/{id}/      # 삭제
 
 ---
 
-## 6. 프론트엔드 기능
+## 6. 서비스 플로우
+
+> 사용자의 핵심 시나리오를 순서대로 기술하세요.
+> design-agent가 이 내용을 기반으로 mermaid 다이어그램을 자동 생성합니다.
+
+### 주요 시나리오
+
+**시나리오 1: [시나리오명 예: 상품 주문]**
+1. 사용자가 [행동 1]
+2. 시스템이 [처리 1]
+3. 사용자가 [행동 2]
+4. 시스템이 [처리 2]
+5. 결과: [최종 상태]
+
+**시나리오 2: [시나리오명]**
+1. ...
+
+### 비즈니스 규칙 (있을 경우)
+
+- [규칙 1 - 예: 재고가 0이면 주문 불가]
+- [규칙 2 - 예: 하루 최대 5건까지 생성 가능]
+
+---
+
+## 7. 프론트엔드 기능
 
 - [ ] [기능 1 - 예: 목록 조회 페이지]
 - [ ] [기능 2 - 예: 생성 폼]
@@ -69,7 +113,7 @@ DELETE /api/[리소스]/{id}/      # 삭제
 
 ---
 
-## 7. 비기능 요구사항
+## 8. 비기능 요구사항
 
 - [ ] CORS 설정 (백엔드 ↔ 프론트엔드)
 - [ ] 환경변수 분리 (.env 파일)
@@ -78,7 +122,7 @@ DELETE /api/[리소스]/{id}/      # 삭제
 
 ---
 
-## 8. 제외 범위 (Out of Scope)
+## 9. 제외 범위 (Out of Scope)
 
 > 이번 버전에서는 구현하지 않는 기능을 명시합니다.
 
