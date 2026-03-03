@@ -26,37 +26,46 @@
 ## 에이전트 역할 및 개발 워크플로우
 
 ```
-[1] design-agent         →  docs/requirements.md 읽기
-                         →  docs/service-flow.md (mermaid 필수)
-                         →  docs/api-spec.md + 프로시저, docs/data-model.md
-                         →  docs/api-spec.json, docs/data-model.json 생성
+[0] requirements-validator →  docs/requirements.md 완성도 검증
+                           →  모호성 점수 산정 (≤0.3 PASS, >0.5 FAIL)
+                           →  docs/requirements-validation-report.md 생성
+                           →  FAIL 시 사용자에게 보완 요청
          ↓
-[1.5] flow-validator     →  설계 문서 간 정합성 검증
-                         →  docs/flow-validation-report.md 생성
-                         →  FAIL 시 design-agent 재호출
+[1] design-agent           →  docs/requirements.md 읽기
+                           →  docs/service-flow.md (mermaid 필수)
+                           →  docs/api-spec.md + 프로시저, docs/data-model.md
+                           →  docs/api-spec.json, docs/data-model.json 생성
          ↓
-[2] planning-agent       →  설계 문서(md + json) 읽기
-                         →  개발 태스크 등록 (TaskCreate) + docs/dev-plan.md 생성
+[1.5] flow-validator       →  설계 문서 간 정합성 검증
+                           →  docs/flow-validation-report.md 생성
+                           →  FAIL 시 design-agent 재호출 (최대 3회, 이후 접근 전환)
          ↓
-[3] db-agent             →  설계 문서 + dev-plan 읽기 → 백엔드/DB 구현
-    frontend-agent       →  설계 문서 + dev-plan 읽기 → 프론트엔드 구현  (병렬 가능)
+[2] planning-agent         →  설계 문서(md + json) 읽기
+                           →  개발 태스크 등록 (TaskCreate) + docs/dev-plan.md 생성
          ↓
-[4] qa-agent             →  코드 리뷰 + 테스트 작성
-                         →  curl E2E 테스트 (서비스 플로우 기반)
-                         →  프론트-백 데이터 계약 검증
-                         →  docs/qa-report.md 생성
-                         →  발견된 교훈을 CLAUDE.md ## 누적 교훈에 기록
+[3] db-agent               →  설계 문서 + dev-plan 읽기 → 백엔드/DB 구현
+    frontend-agent         →  설계 문서 + dev-plan 읽기 → 프론트엔드 구현  (병렬)
+         ↓
+[4] qa-agent               →  코드 리뷰 + 테스트 작성
+                           →  curl E2E 테스트 (서비스 플로우 기반)
+                           →  프론트-백 데이터 계약 검증
+                           →  docs/qa-report.md 생성
+                           →  발견된 교훈을 CLAUDE.md ## 누적 교훈에 기록
 ```
+
+> 파이프라인은 **체크포인트 기반 resume**을 지원합니다.
+> 중단 후 `/start-dev` 재실행 시 `docs/.pipeline-state.json`을 읽어 마지막 완료 단계부터 이어서 진행합니다.
 
 ### 에이전트 호출 방법
 
 ```
-Task(subagent_type: "design-agent",          prompt: "...")
-Task(subagent_type: "flow-validator-agent",  prompt: "...")
-Task(subagent_type: "planning-agent",        prompt: "...")
-Task(subagent_type: "db-agent",              prompt: "...")
-Task(subagent_type: "frontend-agent",        prompt: "...")
-Task(subagent_type: "qa-agent",              prompt: "...")
+Task(subagent_type: "requirements-validator-agent", prompt: "...")
+Task(subagent_type: "design-agent",                 prompt: "...")
+Task(subagent_type: "flow-validator-agent",         prompt: "...")
+Task(subagent_type: "planning-agent",               prompt: "...")
+Task(subagent_type: "db-agent",                     prompt: "...")
+Task(subagent_type: "frontend-agent",               prompt: "...")
+Task(subagent_type: "qa-agent",                     prompt: "...")
 ```
 
 ### 병렬 실행 (독립적인 작업은 한 번에)
