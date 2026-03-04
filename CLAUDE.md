@@ -1,7 +1,7 @@
 # [프로젝트명]
 
-> **시작 방법**: `docs/requirements.md`를 작성한 뒤 `/start-dev`를 실행하세요.
-> 에이전트들이 기획문서를 읽고 설계 → 구현 → QA까지 자동으로 진행합니다.
+> **아이디어만 있을 때**: `/start-ideation`을 실행하세요. 레퍼런스 조사 → requirements.md 자동 생성.
+> **요구사항이 준비되면**: `/start-dev`를 실행하세요. 설계 → 구현 → QA까지 자동 진행.
 
 ---
 
@@ -218,17 +218,22 @@ Task(frontend-agent, run_in_background: true)
 ## 개발 시작
 
 ```bash
-# 1. 요구사항 작성
+# 방법 A: 아이디어만 있을 때 (자동 요구사항 생성)
+/start-ideation
+# → 레퍼런스 조사 → requirements.md 자동 생성 → 검증 루프
+# → 완성된 requirements.md 확인 후 /start-dev 실행
+
+# 방법 B: 요구사항을 직접 작성
 cp docs/requirements.example.md docs/requirements.md
 # docs/requirements.md 편집
 
-# 2. 전체 자동 파이프라인 실행
+# 전체 자동 파이프라인 실행
 /start-dev
 
-# 3. 서버 실행
+# 서버 실행
 ./start.sh
 
-# 4. 작업 회고 및 교훈 기록
+# 작업 회고 및 교훈 기록
 /retrospect
 ```
 
