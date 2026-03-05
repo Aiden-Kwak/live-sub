@@ -1,2 +1,10 @@
 .DS_Store
 _reference/
+
+# Backend
+backend/.env
+backend/.venv/
+backend/livesub.db
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc

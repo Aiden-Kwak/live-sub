@@ -1,4 +1,4 @@
-# [프로젝트명]
+# LiveSub (라이브서브)
 
 > **아이디어만 있을 때**: `/start-ideation`을 실행하세요. 레퍼런스 조사 → requirements.md 자동 생성.
 > **요구사항이 준비되면**: `/start-dev`를 실행하세요. 설계 → 구현 → QA까지 자동 진행.
@@ -7,13 +7,26 @@
 
 ## 프로젝트 개요
 
-> `docs/requirements.md` 작성 후, design-agent가 자동으로 이 섹션을 채웁니다.
+음성을 실시간으로 인식하고 선택한 언어로 번역하여 화면에 자막으로 표시하는 웹 서비스.
+다국어 대화, 발표, 강연 등에서 언어 장벽을 해소하기 위해, 브라우저만으로 실시간 음성 번역 자막을 제공한다.
+별도 앱 설치 없이 웹 브라우저에서 바로 사용 가능한 것이 핵심 가치.
+
+- **STT**: Web Speech API (브라우저 내장, 무료)
+- **번역**: Google Cloud Translation API v2 (FastAPI 프록시 경유, API 키 보호)
+- **세션/로그**: SQLite에 임시 저장 (MVP 최소 구성)
 
 ---
 
 ## 기술 스택
 
-> `docs/requirements.md`에 명시하거나, design-agent가 자동으로 채웁니다.
+| 레이어 | 기술 | 비고 |
+|--------|------|------|
+| Frontend | Next.js 15 (App Router) + TailwindCSS + TypeScript | 단일 페이지, Web Speech API |
+| Backend | Python 3.11+ + FastAPI | 번역 API 프록시 (API 키 보호) |
+| Database | SQLite | 세션/로그 임시 저장 (backend/livesub.db) |
+| 패키지 관리 | uv (backend), npm (frontend) | |
+| STT | Web Speech API (브라우저 내장) | Chrome 최적화 |
+| 번역 | Google Cloud Translation API v2 | 월 500,000자 무료 |
 
 ---
 
@@ -304,4 +317,20 @@ cp docs/requirements.example.md docs/requirements.md
 **교훈**: [다음에 기억할 핵심 내용]
 -->
 
-_아직 기록된 교훈이 없습니다. 첫 번째 프로젝트 완료 후 `/retrospect`를 실행하면 자동으로 채워집니다._
+### 2026-03-05 | LiveSub 설계
+**에이전트**: design-agent
+**문제**: SQLite에 네이티브 UUID 타입이 없어 TEXT로 저장해야 하며, DATETIME도 TEXT 기반이므로 ISO 8601 형식을 명시적으로 강제해야 함. 또한 PRAGMA foreign_keys = ON을 연결 시 매번 설정하지 않으면 FK 제약조건이 동작하지 않음
+**해결**: DDL과 SQLAlchemy 모델에 TEXT 타입 명시, data-model.json의 database.pragmas에 foreign_keys 설정 포함
+**교훈**: SQLite 사용 시 UUID/DATETIME 타입 매핑과 FK pragma 설정을 설계 단계에서 명확히 문서화해야 구현 에이전트가 실수하지 않는다
+
+### 2026-03-05 | LiveSub 설계
+**에이전트**: design-agent
+**문제**: PATCH /api/sessions/{session_id}의 요청 바디에 ended_at을 클라이언트가 보내는 것과 서버가 자동 설정하는 것 중 선택 필요
+**해결**: 서버에서 현재 UTC 시각을 자동 설정하도록 결정. 클라이언트 시각은 신뢰할 수 없고, 종료 시점은 서버 기준이 정확함
+**교훈**: 타임스탬프 갱신은 서버 측에서 자동 설정하는 것이 데이터 일관성 측면에서 안전하다. 클라이언트에 불필요한 책임을 부여하지 말 것
+
+### 2026-03-05 | LiveSub 설계 검증
+**에이전트**: flow-validator-agent
+**문제**: 보조 엔드포인트(GET /api/languages, GET /api/sessions/{id}, GET /api/sessions/{id}/logs, GET /api/health)가 시퀀스 다이어그램에 표현되지 않아 구현 시 호출 타이밍이 불명확할 수 있음
+**해결**: 핵심 플로우에 직접 관여하지 않는 보조 엔드포인트이므로 경고 수준으로 판정. 구현 단계에서 프론트엔드 개발자가 판단 가능한 수준
+**교훈**: 시퀀스 다이어그램은 핵심 시나리오에 집중하되, 페이지 초기 로드 시퀀스(언어 목록 로딩 등)를 별도로 추가하면 구현자의 판단 부담을 줄일 수 있다
