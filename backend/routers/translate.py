@@ -5,7 +5,7 @@ import os
 import httpx
 from fastapi import APIRouter, HTTPException
 
-from schemas import LanguageItem, LanguagesResponse, TranslateRequest, TranslateResponse
+from schemas import LanguageItem, LanguagesResponse, TokenUsage, TranslateRequest, TranslateResponse
 
 router = APIRouter()
 
@@ -81,20 +81,28 @@ async def _translate_google(text: str, source_language: str, target_language: st
         )
 
 
-async def _translate_llm(text: str, source_language: str, target_language: str) -> str:
-    """Translate text via OpenAI ChatGPT API."""
+async def _translate_llm(
+    text: str, source_language: str, target_language: str, context: str = ""
+) -> tuple[str, TokenUsage]:
+    """Translate text via OpenAI ChatGPT API. Returns (translated_text, token_usage)."""
     api_key = _get_openai_api_key()
 
+    system_content = (
+        f"You are a professional translator. "
+        f"Translate the following text from {source_language} to {target_language}. "
+        f"Output ONLY the translated text, nothing else. "
+        f"Preserve the original tone and nuance."
+    )
+
+    if context:
+        system_content += (
+            f"\n\nIMPORTANT CONTEXT: The speech is about: {context}. "
+            f"Use this context to correct any speech recognition errors "
+            f"and choose the most appropriate terminology and translation."
+        )
+
     messages = [
-        {
-            "role": "system",
-            "content": (
-                f"You are a professional translator. "
-                f"Translate the following text from {source_language} to {target_language}. "
-                f"Output ONLY the translated text, nothing else. "
-                f"Preserve the original tone and nuance."
-            ),
-        },
+        {"role": "system", "content": system_content},
         {"role": "user", "content": text},
     ]
 
@@ -133,12 +141,21 @@ async def _translate_llm(text: str, source_language: str, target_language: str) 
         )
 
     try:
-        return data["choices"][0]["message"]["content"].strip()
+        translated = data["choices"][0]["message"]["content"].strip()
     except (KeyError, IndexError) as exc:
         raise HTTPException(
             status_code=500,
             detail=f"LLM Translation error: unexpected response format - {exc}",
         )
+
+    usage = data.get("usage", {})
+    token_usage = TokenUsage(
+        prompt_tokens=usage.get("prompt_tokens", 0),
+        completion_tokens=usage.get("completion_tokens", 0),
+        total_tokens=usage.get("total_tokens", 0),
+    )
+
+    return translated, token_usage
 
 
 @router.post("/translate", response_model=TranslateResponse)
@@ -158,9 +175,10 @@ async def translate_text(body: TranslateRequest) -> TranslateResponse:
     if not body.target_language:
         raise HTTPException(status_code=400, detail="target_language must not be empty")
 
+    token_usage = None
     if body.engine == "llm":
-        translated = await _translate_llm(
-            body.text, body.source_language, body.target_language
+        translated, token_usage = await _translate_llm(
+            body.text, body.source_language, body.target_language, body.context
         )
     else:
         translated = await _translate_google(
@@ -171,6 +189,7 @@ async def translate_text(body: TranslateRequest) -> TranslateResponse:
         translated_text=translated,
         source_language=body.source_language,
         target_language=body.target_language,
+        token_usage=token_usage,
     )
 
 

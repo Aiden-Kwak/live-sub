@@ -13,12 +13,20 @@ class TranslateRequest(BaseModel):
     source_language: str = Field(..., max_length=10)
     target_language: str = Field(..., max_length=10)
     engine: str = Field(default="google", pattern="^(google|llm)$")
+    context: str = Field(default="", max_length=500)
+
+
+class TokenUsage(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
 
 
 class TranslateResponse(BaseModel):
     translated_text: str
     source_language: str
     target_language: str
+    token_usage: TokenUsage | None = None
 
 
 # --- Languages ---

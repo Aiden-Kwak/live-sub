@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { TranslationEntry, DisplayMode, FontSize } from "@/lib/types";
+import { useRef } from "react";
+import type { TranslationEntry, FontSize } from "@/lib/types";
 
 type TranslationDisplayProps = {
   entries: TranslationEntry[];
   interimText: string;
   showOriginal: boolean;
-  displayMode: DisplayMode;
   fontSize: FontSize;
 };
 
@@ -15,89 +14,83 @@ export function TranslationDisplay({
   entries,
   interimText,
   showOriginal,
-  displayMode,
   fontSize,
 }: TranslationDisplayProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll when new entries are added
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [entries.length, interimText]);
-
-  const visibleEntries =
-    displayMode === "subtitle" ? entries.slice(-2) : entries;
+  const latest = entries.length > 0 ? entries[entries.length - 1] : null;
+  const history = entries.slice(0, -1);
 
   return (
-    <div className="flex flex-col gap-4 flex-1 min-h-0">
-      {/* Original text area (interim) */}
-      {showOriginal && (
-        <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
-            Original
-          </p>
-          <div
-            className="min-h-[2em]"
-            style={{ fontSize: `${Math.max(fontSize - 4, 12)}px` }}
-          >
-            {interimText ? (
-              <p className="text-gray-400 italic">{interimText}</p>
-            ) : entries.length > 0 ? (
-              <p className="text-gray-200">
-                {entries[entries.length - 1].originalText}
-              </p>
-            ) : (
-              <p className="text-gray-600">
-                Waiting for speech...
+    <div className="flex flex-col h-full">
+      {/* Center: latest translation */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4">
+        {interimText ? (
+          <div className="text-center max-w-2xl">
+            {showOriginal && (
+              <p
+                className="text-gray-500 italic mb-3"
+                style={{ fontSize: `${Math.max(fontSize - 4, 12)}px` }}
+              >
+                {interimText}
               </p>
             )}
+            <p
+              className="text-gray-600 animate-pulse"
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              ...
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* Translated text area */}
-      <div
-        ref={scrollRef}
-        className={`
-          bg-gray-900/80 rounded-xl p-4 border border-gray-700/50 flex-1 min-h-0
-          ${displayMode === "scroll" ? "overflow-y-auto" : "overflow-hidden flex flex-col justify-end"}
-        `}
-      >
-        <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">
-          Translation
-        </p>
-
-        {visibleEntries.length === 0 && !interimText ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-600 text-center" style={{ fontSize: `${fontSize}px` }}>
-              Translations will appear here
+        ) : latest ? (
+          <div className="text-center max-w-2xl transition-all duration-300">
+            {showOriginal && (
+              <p
+                className="text-gray-400 mb-3"
+                style={{ fontSize: `${Math.max(fontSize - 4, 12)}px` }}
+              >
+                {latest.originalText}
+              </p>
+            )}
+            <p
+              className="text-white font-semibold leading-relaxed"
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              {latest.translatedText}
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {visibleEntries.map((entry) => (
-              <div key={entry.id} className="space-y-1">
-                {showOriginal && displayMode === "scroll" && (
-                  <p
-                    className="text-gray-400 text-sm"
-                    style={{ fontSize: `${Math.max(fontSize - 6, 11)}px` }}
-                  >
+          <p className="text-gray-600 text-lg">
+            Translations will appear here
+          </p>
+        )}
+      </div>
+
+      {/* Bottom: scrollable history */}
+      {history.length > 0 && (
+        <div
+          ref={historyRef}
+          className="border-t border-gray-800/50 max-h-40 overflow-y-auto px-4 py-3"
+        >
+          <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">
+            History
+          </p>
+          <div className="space-y-1.5">
+            {history.map((entry) => (
+              <div key={entry.id} className="flex gap-3 text-sm">
+                {showOriginal && (
+                  <span className="text-gray-500 truncate flex-1">
                     {entry.originalText}
-                  </p>
+                  </span>
                 )}
-                <p
-                  className="text-white font-medium leading-relaxed"
-                  style={{ fontSize: `${fontSize}px` }}
-                >
+                <span className="text-gray-300 truncate flex-1">
                   {entry.translatedText}
-                </p>
+                </span>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,12 +11,20 @@ export type TranslateRequest = {
   source_language: string;
   target_language: string;
   engine?: TranslateEngine;
+  context?: string;
+};
+
+export type TokenUsage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
 };
 
 export type TranslateResponse = {
   translated_text: string;
   source_language: string;
   target_language: string;
+  token_usage: TokenUsage | null;
 };
 
 // --- Languages ---
