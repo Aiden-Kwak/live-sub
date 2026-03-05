@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore, useState } from "react";
 import type { Settings, FontSize, DisplayMode } from "@/lib/types";
 
 const STORAGE_KEY = "livesub-settings";
@@ -45,15 +45,19 @@ function saveSettings(settings: Settings): void {
   }
 }
 
-export function useSettings() {
-  const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
-  const [isLoaded, setIsLoaded] = useState(false);
+function subscribeToNothing() {
+  return () => {};
+}
 
-  // Load settings from localStorage on mount (client-side only)
-  useEffect(() => {
-    setSettingsState(loadSettings());
-    setIsLoaded(true);
-  }, []);
+export function useSettings() {
+  const [settings, setSettingsState] = useState<Settings>(() => loadSettings());
+
+  // Use useSyncExternalStore to safely detect client hydration without useEffect + setState
+  const isLoaded = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,   // client: loaded
+    () => false,  // server: not loaded
+  );
 
   const updateSettings = useCallback((partial: Partial<Settings>) => {
     setSettingsState((prev) => {

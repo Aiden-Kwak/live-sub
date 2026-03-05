@@ -41,9 +41,15 @@ export function useSpeechRecognition({
 
   // Store latest callbacks in refs to avoid stale closures
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const stop = useCallback(() => {
     shouldRestartRef.current = false;

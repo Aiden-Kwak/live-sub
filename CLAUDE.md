@@ -334,3 +334,21 @@ cp docs/requirements.example.md docs/requirements.md
 **문제**: 보조 엔드포인트(GET /api/languages, GET /api/sessions/{id}, GET /api/sessions/{id}/logs, GET /api/health)가 시퀀스 다이어그램에 표현되지 않아 구현 시 호출 타이밍이 불명확할 수 있음
 **해결**: 핵심 플로우에 직접 관여하지 않는 보조 엔드포인트이므로 경고 수준으로 판정. 구현 단계에서 프론트엔드 개발자가 판단 가능한 수준
 **교훈**: 시퀀스 다이어그램은 핵심 시나리오에 집중하되, 페이지 초기 로드 시퀀스(언어 목록 로딩 등)를 별도로 추가하면 구현자의 판단 부담을 줄일 수 있다
+
+### 2026-03-05 | LiveSub QA
+**에이전트**: qa-agent
+**문제**: React 19 + Next.js 16의 ESLint 플러그인이 기존 React 18에서 널리 사용되던 패턴(렌더 중 ref.current 업데이트, useEffect 내 setState)을 에러로 감지함
+**해결**: ref 업데이트를 useEffect로 이동, useState+useEffect 패턴을 useSyncExternalStore로 대체
+**교훈**: React 19에서는 (1) ref.current 할당은 반드시 useEffect 내에서, (2) SSR 하이드레이션 감지는 useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot) 패턴을 사용할 것
+
+### 2026-03-05 | LiveSub QA
+**에이전트**: qa-agent
+**문제**: API 스펙에서 datetime을 "Z" 접미사 포함 ISO 8601로 명시했으나, FastAPI/Pydantic의 기본 직렬화는 "Z" 없이 출력
+**해결**: 현재 프론트엔드에서 타임스탬프를 파싱하지 않아 기능적 영향 없음. 향후 수정 권고
+**교훈**: API 설계 시 datetime 직렬화 형식을 명확히 정의하고, 백엔드에서 해당 형식을 강제하는 설정을 구현 단계에서 반드시 적용할 것
+
+### 2026-03-05 | LiveSub QA
+**에이전트**: qa-agent
+**문제**: 프론트-백 데이터 계약 불일치 없음. 모든 필드명/타입이 api-spec.json, 프론트엔드 TypeScript 타입, 백엔드 Pydantic 스키마 간 일치
+**해결**: N/A
+**교훈**: snake_case를 프론트엔드와 백엔드 모두에서 일관되게 사용하면 camelCase 변환 누락으로 인한 계약 불일치를 원천 차단할 수 있다. 소규모 프로젝트에서는 네이밍 통일이 별도 변환 레이어보다 효과적이다
