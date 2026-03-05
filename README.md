@@ -1,92 +1,92 @@
 # LiveSub
 
-Real-time speech-to-text translation subtitle service. Listen to speech in one language and display translated subtitles in another — live in your browser.
+브라우저에서 실시간으로 음성을 인식하고, 선택한 언어로 번역된 자막을 화면에 띄워주는 서비스입니다.
 
-## Features
+## 주요 기능
 
-- **Real-time STT** — Browser-native Web Speech API (no external STT service needed)
-- **Dual translation engine** — Google Cloud Translation API or OpenAI LLM
-- **LLM model selection** — gpt-4.1-nano (default), gpt-4.1-mini, gpt-4o-mini
-- **Context-aware translation** — Provide context to help LLM correct STT errors and choose better terminology
-- **Conversation continuity** — Previous translations included in LLM prompt for consistent terminology
-- **Chunked translation** — Long speech auto-translates in chunks (5s timeout / 50 char threshold), then replaces with final result
-- **API key management** — Input and test API keys in Settings, stored in localStorage
-- **Session logging** — Translation history saved to SQLite via session API
-- **Customizable display** — Font size, show/hide original text
+- **실시간 음성 인식** — 브라우저 내장 Web Speech API 사용 (별도 STT 서비스 불필요)
+- **이중 번역 엔진** — Google Cloud Translation API 또는 OpenAI LLM 선택
+- **LLM 모델 선택** — gpt-4.1-nano (기본), gpt-4.1-mini, gpt-4o-mini
+- **맥락 기반 번역** — 맥락 입력으로 STT 오류 보정 및 적절한 용어 선택
+- **대화 연속성** — 이전 번역 내용을 LLM 프롬프트에 포함하여 일관된 번역 제공
+- **청크 번역** — 긴 발화 시 5초/50자 기준으로 중간 번역 표시 후, 최종 결과로 교체
+- **API 키 관리** — Settings에서 API 키 입력/테스트, localStorage에 저장
+- **세션 로깅** — 번역 기록을 SQLite에 저장
+- **화면 커스터마이징** — 글꼴 크기, 원문 표시 여부 설정
 
-## Tech Stack
+## 기술 스택
 
-| Layer | Stack |
-|-------|-------|
-| Frontend | Next.js 15, TypeScript, TailwindCSS |
-| Backend | FastAPI, SQLAlchemy (async), SQLite |
-| STT | Web Speech API (browser-native) |
-| Translation | Google Cloud Translation API v2, OpenAI API |
+| 계층 | 스택 |
+|------|------|
+| 프론트엔드 | Next.js 15, TypeScript, TailwindCSS |
+| 백엔드 | FastAPI, SQLAlchemy (async), SQLite |
+| 음성 인식 | Web Speech API (브라우저 내장) |
+| 번역 | Google Cloud Translation API v2, OpenAI API |
 
-## Quick Start
+## 시작하기
 
-### Prerequisites
+### 사전 요구사항
 
 - Python 3.11+
 - Node.js 18+
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [uv](https://docs.astral.sh/uv/) (Python 패키지 매니저)
 
-### Setup
+### 설치 및 실행
 
 ```bash
-# 1. Clone
+# 1. 클론
 git clone https://github.com/Aiden-Kwak/live-sub.git
 cd live-sub
 
-# 2. Backend env
+# 2. 백엔드 환경변수 설정
 cp backend/.env.example backend/.env
-# Edit backend/.env and add your API keys (optional — can also set in UI Settings)
+# backend/.env에 API 키 입력 (선택사항 — UI Settings에서도 설정 가능)
 
-# 3. Run
+# 3. 실행
 ./start.sh
 ```
 
-Opens at:
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8000
+접속 주소:
+- 프론트엔드: http://localhost:3000
+- 백엔드: http://localhost:8000
 
-### API Keys
+### API 키 설정
 
-You can provide API keys in two ways:
-1. **Settings UI** — Click the gear icon → enter keys → Test → Save (stored in browser localStorage)
-2. **Server .env** — Set `GOOGLE_CLOUD_API_KEY` and/or `OPENAI_API_KEY` in `backend/.env`
+두 가지 방법으로 API 키를 제공할 수 있습니다:
+1. **Settings UI** — 톱니바퀴 아이콘 클릭 → 키 입력 → Test → Save (브라우저 localStorage에 저장)
+2. **서버 .env** — `backend/.env`에 `GOOGLE_CLOUD_API_KEY`, `OPENAI_API_KEY` 설정
 
-UI keys take priority over server env vars.
+UI에서 입력한 키가 서버 환경변수보다 우선 적용됩니다.
 
-## Usage
+## 사용법
 
-1. Select source language (speech) and target language (subtitles)
-2. Choose engine: **Google** (fast) or **LLM** (context-aware, higher quality)
-3. If using LLM, optionally set context (e.g., "Medical conference about cardiology")
-4. Click the mic button to start
-5. Speak — translations appear in real-time
+1. 소스 언어(음성)와 타겟 언어(자막)를 선택
+2. 엔진 선택: **Google** (빠름) 또는 **LLM** (맥락 인식, 높은 품질)
+3. LLM 사용 시, 맥락 입력 가능 (예: "심장학 관련 의학 컨퍼런스")
+4. 마이크 버튼 클릭하여 시작
+5. 말하면 실시간으로 번역 자막이 표시됩니다
 
-## Project Structure
+## 프로젝트 구조
 
 ```
 ├── backend/
-│   ├── main.py              # FastAPI app entry
-│   ├── schemas.py           # Pydantic request/response models
-│   ├── models.py            # SQLAlchemy ORM models
-│   ├── database.py          # Async SQLite engine
+│   ├── main.py              # FastAPI 앱 진입점
+│   ├── schemas.py           # Pydantic 요청/응답 모델
+│   ├── models.py            # SQLAlchemy ORM 모델
+│   ├── database.py          # 비동기 SQLite 엔진
 │   └── routers/
 │       ├── translate.py     # POST /api/translate, GET /api/languages, POST /api/test-key
-│       ├── sessions.py      # Session & log CRUD
+│       ├── sessions.py      # 세션 및 로그 CRUD
 │       └── health.py        # GET /api/health
 ├── frontend/
 │   └── src/
-│       ├── app/page.tsx     # Main page
-│       ├── components/      # UI components
+│       ├── app/page.tsx     # 메인 페이지
+│       ├── components/      # UI 컴포넌트
 │       ├── hooks/           # useSpeechRecognition, useSettings
-│       └── lib/             # API client, types
-└── start.sh                 # One-command startup script
+│       └── lib/             # API 클라이언트, 타입
+└── start.sh                 # 원클릭 실행 스크립트
 ```
 
-## License
+## 라이선스
 
 MIT
