@@ -4,10 +4,13 @@
 
 // --- Translate ---
 
+export type TranslateEngine = "google" | "llm";
+
 export type TranslateRequest = {
   text: string;
   source_language: string;
   target_language: string;
+  engine?: TranslateEngine;
 };
 
 export type TranslateResponse = {

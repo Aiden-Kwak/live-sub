@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Language, TranslationEntry } from "@/lib/types";
+import type { Language, TranslateEngine, TranslationEntry } from "@/lib/types";
 import { getLanguages, translate, createSession, endSession, createLog } from "@/lib/api";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSettings } from "@/hooks/useSettings";
@@ -42,6 +42,7 @@ export default function Home() {
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [engine, setEngine] = useState<TranslateEngine>("google");
 
   const [interimText, setInterimText] = useState("");
   const [entries, setEntries] = useState<TranslationEntry[]>([]);
@@ -58,6 +59,7 @@ export default function Home() {
   const sessionIdRef = useRef<string | null>(null);
   const sourceLanguageRef = useRef(sourceLanguage);
   const targetLanguageRef = useRef(targetLanguage);
+  const engineRef = useRef(engine);
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -68,6 +70,9 @@ export default function Home() {
   useEffect(() => {
     targetLanguageRef.current = targetLanguage;
   }, [targetLanguage]);
+  useEffect(() => {
+    engineRef.current = engine;
+  }, [engine]);
 
   // Track mount for SSR safety
   useEffect(() => {
@@ -151,6 +156,7 @@ export default function Home() {
           text,
           source_language: sourceLangCode,
           target_language: targetLanguageRef.current,
+          engine: engineRef.current,
         });
 
         const entry: TranslationEntry = {
@@ -330,11 +336,41 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Mic button */}
-          <MicButton
-            micStatus={isTranslating ? micStatus : (micStatus === "listening" ? "listening" : "idle")}
-            onToggle={handleToggle}
-          />
+          {/* Engine toggle + Mic button */}
+          <div className="flex items-end gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Engine</label>
+              <div className="flex rounded-lg overflow-hidden border border-gray-700">
+                <button
+                  onClick={() => setEngine("google")}
+                  disabled={isTranslating}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    engine === "google"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  } ${isTranslating ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  Google
+                </button>
+                <button
+                  onClick={() => setEngine("llm")}
+                  disabled={isTranslating}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    engine === "llm"
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  } ${isTranslating ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  LLM
+                </button>
+              </div>
+            </div>
+
+            <MicButton
+              micStatus={isTranslating ? micStatus : (micStatus === "listening" ? "listening" : "idle")}
+              onToggle={handleToggle}
+            />
+          </div>
         </div>
       </section>
 

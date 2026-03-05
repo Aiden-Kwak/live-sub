@@ -12,6 +12,7 @@ class TranslateRequest(BaseModel):
     text: str
     source_language: str = Field(..., max_length=10)
     target_language: str = Field(..., max_length=10)
+    engine: str = Field(default="google", pattern="^(google|llm)$")
 
 
 class TranslateResponse(BaseModel):
