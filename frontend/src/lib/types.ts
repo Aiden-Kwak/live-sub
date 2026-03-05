@@ -6,12 +6,16 @@
 
 export type TranslateEngine = "google" | "llm";
 
+export type LlmModel = "gpt-4o-mini" | "gpt-4.1-mini" | "gpt-4.1-nano";
+
 export type TranslateRequest = {
   text: string;
   source_language: string;
   target_language: string;
   engine?: TranslateEngine;
+  model?: LlmModel;
   context?: string;
+  previous_translations?: string[];
 };
 
 export type TokenUsage = {
@@ -111,4 +115,5 @@ export type TranslationEntry = {
   translatedText: string;
   confidence: number | null;
   timestamp: number;
+  provisional?: boolean;
 };

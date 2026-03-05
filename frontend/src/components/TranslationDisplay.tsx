@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { TranslationEntry, FontSize } from "@/lib/types";
 
 type TranslationDisplayProps = {
@@ -16,34 +16,46 @@ export function TranslationDisplay({
   showOriginal,
   fontSize,
 }: TranslationDisplayProps) {
-  const historyRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [entries.length, interimText]);
 
   const latest = entries.length > 0 ? entries[entries.length - 1] : null;
   const history = entries.slice(0, -1);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Center: latest translation */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4">
-        {interimText ? (
-          <div className="text-center max-w-2xl">
-            {showOriginal && (
-              <p
-                className="text-gray-500 italic mb-3"
-                style={{ fontSize: `${Math.max(fontSize - 4, 12)}px` }}
-              >
-                {interimText}
-              </p>
-            )}
+    <div className="h-full overflow-y-auto flex flex-col">
+      {/* Top spacer */}
+      <div className="flex-1 min-h-[30%]" />
+
+      {/* History entries */}
+      {history.map((entry) => (
+        <div key={entry.id} className="px-6 py-3 text-center opacity-40 hover:opacity-70 transition-opacity">
+          {showOriginal && (
             <p
-              className="text-gray-600 animate-pulse"
-              style={{ fontSize: `${fontSize}px` }}
+              className="text-gray-500 mb-1"
+              style={{ fontSize: `${Math.max(fontSize - 6, 11)}px` }}
             >
-              ...
+              {entry.originalText}
             </p>
-          </div>
-        ) : latest ? (
-          <div className="text-center max-w-2xl transition-all duration-300">
+          )}
+          <p
+            className="text-gray-400"
+            style={{ fontSize: `${Math.max(fontSize - 2, 14)}px` }}
+          >
+            {entry.translatedText}
+          </p>
+        </div>
+      ))}
+
+      {/* Latest translation — always visible in green until replaced */}
+      {latest && (
+        <div className="px-6 py-8 text-center">
+          <div className="max-w-2xl mx-auto transition-all duration-300">
             {showOriginal && (
               <p
                 className="text-gray-400 mb-3"
@@ -53,44 +65,38 @@ export function TranslationDisplay({
               </p>
             )}
             <p
-              className="text-white font-semibold leading-relaxed"
+              className={`font-semibold leading-relaxed ${latest.provisional ? "text-yellow-400/80" : "text-emerald-400"}`}
               style={{ fontSize: `${fontSize}px` }}
             >
               {latest.translatedText}
+              {latest.provisional && (
+                <span className="inline-block ml-2 text-xs text-yellow-500/60 font-normal align-middle">...</span>
+              )}
             </p>
-          </div>
-        ) : (
-          <p className="text-gray-600 text-lg">
-            Translations will appear here
-          </p>
-        )}
-      </div>
-
-      {/* Bottom: scrollable history */}
-      {history.length > 0 && (
-        <div
-          ref={historyRef}
-          className="border-t border-gray-800/50 max-h-40 overflow-y-auto px-4 py-3"
-        >
-          <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">
-            History
-          </p>
-          <div className="space-y-1.5">
-            {history.map((entry) => (
-              <div key={entry.id} className="flex gap-3 text-sm">
-                {showOriginal && (
-                  <span className="text-gray-500 truncate flex-1">
-                    {entry.originalText}
-                  </span>
-                )}
-                <span className="text-gray-300 truncate flex-1">
-                  {entry.translatedText}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       )}
+
+      {/* Interim text — shown below the latest while recognizing */}
+      <div ref={bottomRef} className="px-6 py-4 text-center min-h-[3em]">
+        {interimText ? (
+          <div className="max-w-2xl mx-auto">
+            <p
+              className="text-gray-500 italic animate-pulse"
+              style={{ fontSize: `${Math.max(fontSize - 2, 14)}px` }}
+            >
+              {interimText}
+            </p>
+          </div>
+        ) : !latest ? (
+          <p className="text-gray-600 text-lg">
+            Translations will appear here
+          </p>
+        ) : null}
+      </div>
+
+      {/* Bottom spacer */}
+      <div className="flex-1 min-h-[30%]" />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Language, TranslateEngine, TokenUsage, TranslationEntry } from "@/lib/types";
+import type { Language, TranslateEngine, LlmModel, TokenUsage, TranslationEntry } from "@/lib/types";
 import { getLanguages, translate, createSession, endSession, createLog } from "@/lib/api";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSettings } from "@/hooks/useSettings";
@@ -33,14 +33,15 @@ const SPEECH_LANGUAGES: Language[] = [
 ];
 
 export default function Home() {
-  const [sourceLanguage, setSourceLanguage] = useState("ko-KR");
-  const [targetLanguage, setTargetLanguage] = useState("en");
+  const [sourceLanguage, setSourceLanguage] = useState("en-US");
+  const [targetLanguage, setTargetLanguage] = useState("ko");
   const [targetLanguages, setTargetLanguages] = useState<Language[]>([]);
   const [isLoadingLanguages, setIsLoadingLanguages] = useState(true);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [engine, setEngine] = useState<TranslateEngine>("google");
+  const [model, setModel] = useState<LlmModel>("gpt-4.1-nano");
   const [context, setContext] = useState("");
 
   const [interimText, setInterimText] = useState("");
@@ -66,13 +67,17 @@ export default function Home() {
   const sourceLanguageRef = useRef(sourceLanguage);
   const targetLanguageRef = useRef(targetLanguage);
   const engineRef = useRef(engine);
+  const modelRef = useRef(model);
   const contextRef = useRef(context);
+  const entriesRef = useRef(entries);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { sourceLanguageRef.current = sourceLanguage; }, [sourceLanguage]);
   useEffect(() => { targetLanguageRef.current = targetLanguage; }, [targetLanguage]);
   useEffect(() => { engineRef.current = engine; }, [engine]);
+  useEffect(() => { modelRef.current = model; }, [model]);
   useEffect(() => { contextRef.current = context; }, [context]);
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
   useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
@@ -121,8 +126,11 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Track the latest provisional entry ID so final results can replace it
+  const provisionalIdRef = useRef<string | null>(null);
+
   const handleSpeechResult = useCallback(
-    async (result: { transcript: string; isFinal: boolean; confidence: number }) => {
+    async (result: { transcript: string; isFinal: boolean; confidence: number; isForced?: boolean }) => {
       if (!result.isFinal) {
         setInterimText(result.transcript);
         return;
@@ -131,9 +139,14 @@ export default function Home() {
       const text = result.transcript.trim();
       if (!text) return;
 
+      const isForced = result.isForced ?? false;
       const sourceLangCode = sourceLanguageRef.current.split("-")[0];
       const currentEngine = engineRef.current;
+      const currentModel = modelRef.current;
       const currentContext = contextRef.current;
+      const recentEntries = entriesRef.current.slice(-5).map(
+        (e) => `${e.originalText} -> ${e.translatedText}`
+      );
 
       try {
         const translated = await translate({
@@ -141,17 +154,46 @@ export default function Home() {
           source_language: sourceLangCode,
           target_language: targetLanguageRef.current,
           engine: currentEngine,
+          model: currentEngine === "llm" ? currentModel : undefined,
           context: currentEngine === "llm" ? currentContext : undefined,
+          previous_translations: currentEngine === "llm" ? recentEntries : undefined,
         });
 
-        const entry: TranslationEntry = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          originalText: text,
-          translatedText: translated.translated_text,
-          confidence: result.confidence,
-          timestamp: Date.now(),
-        };
-        setEntries((prev) => [...prev, entry]);
+        if (isForced) {
+          // Forced interim: add as provisional entry
+          const entryId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          provisionalIdRef.current = entryId;
+          const entry: TranslationEntry = {
+            id: entryId,
+            originalText: text,
+            translatedText: translated.translated_text,
+            confidence: result.confidence,
+            timestamp: Date.now(),
+            provisional: true,
+          };
+          setEntries((prev) => [...prev, entry]);
+        } else {
+          // Real final: replace provisional entries or add new
+          const prevProvisionalId = provisionalIdRef.current;
+          provisionalIdRef.current = null;
+
+          const entry: TranslationEntry = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            originalText: text,
+            translatedText: translated.translated_text,
+            confidence: result.confidence,
+            timestamp: Date.now(),
+          };
+
+          setEntries((prev) => {
+            if (prevProvisionalId) {
+              // Remove all provisional entries and add the final one
+              const filtered = prev.filter((e) => !e.provisional);
+              return [...filtered, entry];
+            }
+            return [...prev, entry];
+          });
+        }
 
         if (translated.token_usage) {
           setTotalTokens((prev) => ({
@@ -171,14 +213,16 @@ export default function Home() {
           }).catch(() => {});
         }
       } catch (err) {
-        const entry: TranslationEntry = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          originalText: text,
-          translatedText: `[Translation failed] ${text}`,
-          confidence: result.confidence,
-          timestamp: Date.now(),
-        };
-        setEntries((prev) => [...prev, entry]);
+        if (!isForced) {
+          const entry: TranslationEntry = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            originalText: text,
+            translatedText: `[Translation failed] ${text}`,
+            confidence: result.confidence,
+            timestamp: Date.now(),
+          };
+          setEntries((prev) => [...prev, entry]);
+        }
         const message = err instanceof Error ? err.message : "Translation request failed";
         addToast(message, "error");
       }
@@ -278,6 +322,21 @@ export default function Home() {
                 <button onClick={() => setEngine("llm")} disabled={isTranslating} className={`px-3 py-1.5 text-xs font-medium transition-colors ${engine === "llm" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"} ${isTranslating ? "opacity-50 cursor-not-allowed" : ""}`}>LLM</button>
               </div>
             </div>
+            {engine === "llm" && (
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Model</label>
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as LlmModel)}
+                  disabled={isTranslating}
+                  className={`bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-purple-500 ${isTranslating ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <option value="gpt-4.1-nano">4.1-nano</option>
+                  <option value="gpt-4.1-mini">4.1-mini</option>
+                  <option value="gpt-4o-mini">4o-mini</option>
+                </select>
+              </div>
+            )}
             <MicButton micStatus={isTranslating ? micStatus : (micStatus === "listening" ? "listening" : "idle")} onToggle={handleToggle} />
           </div>
         </div>
@@ -340,7 +399,7 @@ export default function Home() {
             </div>
 
             <div className="mt-auto text-xs text-gray-600">
-              <p>Model: gpt-4o-mini</p>
+              <p>Model: {model}</p>
               {totalTokens.total_tokens > 0 && (
                 <p className="mt-1">
                   ~${((totalTokens.prompt_tokens * 0.00000015) + (totalTokens.completion_tokens * 0.0000006)).toFixed(4)}

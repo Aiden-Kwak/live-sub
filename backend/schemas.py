@@ -13,7 +13,9 @@ class TranslateRequest(BaseModel):
     source_language: str = Field(..., max_length=10)
     target_language: str = Field(..., max_length=10)
     engine: str = Field(default="google", pattern="^(google|llm)$")
+    model: str = Field(default="gpt-4.1-nano", pattern="^(gpt-4o-mini|gpt-4\\.1-mini|gpt-4\\.1-nano)$")
     context: str = Field(default="", max_length=500)
+    previous_translations: list[str] = Field(default_factory=list, max_length=10)
 
 
 class TokenUsage(BaseModel):

@@ -14,6 +14,7 @@ type SpeechResult = {
   transcript: string;
   isFinal: boolean;
   confidence: number;
+  isForced?: boolean;
 };
 
 type UseSpeechRecognitionOptions = {
@@ -29,6 +30,9 @@ type UseSpeechRecognitionReturn = {
   isSupported: boolean;
 };
 
+const FORCE_TIMEOUT_MS = 5000;
+const FORCE_CHAR_THRESHOLD = 50;
+
 export function useSpeechRecognition({
   language,
   onResult,
@@ -43,6 +47,12 @@ export function useSpeechRecognition({
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
 
+  // Chunked translation: timer and tracking
+  const forceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interimStartTimeRef = useRef<number | null>(null);
+  const lastForcedTextRef = useRef<string>("");
+  const latestInterimRef = useRef<string>("");
+
   useEffect(() => {
     onResultRef.current = onResult;
   }, [onResult]);
@@ -51,13 +61,46 @@ export function useSpeechRecognition({
     onErrorRef.current = onError;
   }, [onError]);
 
+  const clearForceTimer = useCallback(() => {
+    if (forceTimerRef.current) {
+      clearTimeout(forceTimerRef.current);
+      forceTimerRef.current = null;
+    }
+  }, []);
+
+  const resetInterimTracking = useCallback(() => {
+    clearForceTimer();
+    interimStartTimeRef.current = null;
+    lastForcedTextRef.current = "";
+    latestInterimRef.current = "";
+  }, [clearForceTimer]);
+
+  const forceEmitInterim = useCallback(() => {
+    const text = latestInterimRef.current.trim();
+    if (!text || text === lastForcedTextRef.current) return;
+
+    lastForcedTextRef.current = text;
+    onResultRef.current({
+      transcript: text,
+      isFinal: true,
+      confidence: 0.5,
+      isForced: true,
+    });
+
+    // Reset timer for next chunk
+    interimStartTimeRef.current = Date.now();
+    clearForceTimer();
+    forceTimerRef.current = setTimeout(forceEmitInterim, FORCE_TIMEOUT_MS);
+  }, [clearForceTimer]);
+
   const stop = useCallback(() => {
     shouldRestartRef.current = false;
+    resetInterimTracking();
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
     setMicStatus("stopped");
-  }, []);
+  }, [resetInterimTracking]);
 
   const start = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
@@ -75,6 +118,7 @@ export function useSpeechRecognition({
         // ignore
       }
     }
+    resetInterimTracking();
 
     const recognition = new Ctor();
     recognition.continuous = true;
@@ -86,11 +130,46 @@ export function useSpeechRecognition({
       const result = event.results[lastIdx];
       const alt = result[0];
 
-      onResultRef.current({
-        transcript: alt.transcript,
-        isFinal: result.isFinal,
-        confidence: alt.confidence,
-      });
+      if (result.isFinal) {
+        // Real final result from Web Speech API
+        clearForceTimer();
+        const finalText = alt.transcript.trim();
+        // Reset tracking for next utterance
+        interimStartTimeRef.current = null;
+        latestInterimRef.current = "";
+
+        onResultRef.current({
+          transcript: alt.transcript,
+          isFinal: true,
+          confidence: alt.confidence,
+          isForced: false,
+        });
+        lastForcedTextRef.current = "";
+      } else {
+        // Interim result
+        latestInterimRef.current = alt.transcript;
+
+        // Start timer on first interim
+        if (interimStartTimeRef.current === null) {
+          interimStartTimeRef.current = Date.now();
+          forceTimerRef.current = setTimeout(forceEmitInterim, FORCE_TIMEOUT_MS);
+        }
+
+        // Force emit if character threshold exceeded
+        const newText = alt.transcript.trim();
+        const forcedText = lastForcedTextRef.current;
+        const delta = forcedText ? newText.slice(forcedText.length).trim() : newText;
+        if (delta.length >= FORCE_CHAR_THRESHOLD) {
+          forceEmitInterim();
+        }
+
+        // Still send interim for display
+        onResultRef.current({
+          transcript: alt.transcript,
+          isFinal: false,
+          confidence: alt.confidence,
+        });
+      }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -135,12 +214,13 @@ export function useSpeechRecognition({
       setMicStatus("error");
       onErrorRef.current?.("Failed to start speech recognition.");
     }
-  }, [language]);
+  }, [language, resetInterimTracking, clearForceTimer, forceEmitInterim]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       shouldRestartRef.current = false;
+      resetInterimTracking();
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -149,7 +229,7 @@ export function useSpeechRecognition({
         }
       }
     };
-  }, []);
+  }, [resetInterimTracking]);
 
   return { start, stop, micStatus, isSupported };
 }

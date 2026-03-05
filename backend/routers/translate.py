@@ -3,7 +3,7 @@
 import os
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 
 from schemas import LanguageItem, LanguagesResponse, TokenUsage, TranslateRequest, TranslateResponse
 
@@ -16,9 +16,9 @@ GOOGLE_LANGUAGES_URL = (
 OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
 
-def _get_google_api_key() -> str:
-    """Load Google Cloud API key from environment, raise 500 if missing."""
-    key = os.getenv("GOOGLE_CLOUD_API_KEY", "")
+def _get_google_api_key(header_key: str = "") -> str:
+    """Use header key first, fall back to env. Raise 500 if both missing."""
+    key = header_key or os.getenv("GOOGLE_CLOUD_API_KEY", "")
     if not key:
         raise HTTPException(
             status_code=500,
@@ -27,20 +27,20 @@ def _get_google_api_key() -> str:
     return key
 
 
-def _get_openai_api_key() -> str:
-    """Load OpenAI API key from environment, raise 500 if missing."""
-    key = os.getenv("OPENAI_API_KEY", "")
+def _get_openai_api_key(header_key: str = "") -> str:
+    """Use header key first, fall back to env. Raise 500 if both missing."""
+    key = header_key or os.getenv("OPENAI_API_KEY", "")
     if not key:
         raise HTTPException(
             status_code=500,
-            detail="OPENAI_API_KEY is not configured. Set it in backend/.env to use LLM translation.",
+            detail="OPENAI_API_KEY is not configured. Set it in backend/.env or provide via settings.",
         )
     return key
 
 
-async def _translate_google(text: str, source_language: str, target_language: str) -> str:
+async def _translate_google(text: str, source_language: str, target_language: str, api_key_override: str = "") -> str:
     """Translate text via Google Cloud Translation API v2."""
-    api_key = _get_google_api_key()
+    api_key = _get_google_api_key(api_key_override)
 
     params = {"key": api_key}
     payload = {
@@ -82,10 +82,16 @@ async def _translate_google(text: str, source_language: str, target_language: st
 
 
 async def _translate_llm(
-    text: str, source_language: str, target_language: str, context: str = ""
+    text: str,
+    source_language: str,
+    target_language: str,
+    context: str = "",
+    previous_translations: list[str] | None = None,
+    api_key_override: str = "",
+    model: str = "gpt-4.1-nano",
 ) -> tuple[str, TokenUsage]:
     """Translate text via OpenAI ChatGPT API. Returns (translated_text, token_usage)."""
-    api_key = _get_openai_api_key()
+    api_key = _get_openai_api_key(api_key_override)
 
     system_content = (
         f"You are a professional translator. "
@@ -101,6 +107,15 @@ async def _translate_llm(
             f"and choose the most appropriate terminology and translation."
         )
 
+    if previous_translations:
+        recent = previous_translations[-5:]
+        history_text = "\n".join(f"- {t}" for t in recent)
+        system_content += (
+            f"\n\nRECENT CONVERSATION for context continuity:\n{history_text}\n"
+            f"Use this conversation history to maintain consistency in terminology, "
+            f"resolve ambiguous speech recognition, and understand the ongoing topic."
+        )
+
     messages = [
         {"role": "system", "content": system_content},
         {"role": "user", "content": text},
@@ -112,7 +127,7 @@ async def _translate_llm(
     }
 
     payload = {
-        "model": "gpt-4o-mini",
+        "model": model,
         "messages": messages,
         "temperature": 0.3,
         "max_tokens": 1024,
@@ -159,15 +174,12 @@ async def _translate_llm(
 
 
 @router.post("/translate", response_model=TranslateResponse)
-async def translate_text(body: TranslateRequest) -> TranslateResponse:
-    """Translate text via Google Cloud Translation API v2 or OpenAI LLM.
-
-    Procedure:
-    1. Validate text is not empty/whitespace.
-    2. Validate language codes are not empty.
-    3. Route to appropriate engine (google or llm).
-    4. Return translated text.
-    """
+async def translate_text(
+    body: TranslateRequest,
+    x_google_api_key: str = Header("", alias="X-Google-API-Key"),
+    x_openai_api_key: str = Header("", alias="X-OpenAI-API-Key"),
+) -> TranslateResponse:
+    """Translate text via Google Cloud Translation API v2 or OpenAI LLM."""
     if not body.text or not body.text.strip():
         raise HTTPException(status_code=400, detail="text must not be empty")
     if not body.source_language:
@@ -178,11 +190,18 @@ async def translate_text(body: TranslateRequest) -> TranslateResponse:
     token_usage = None
     if body.engine == "llm":
         translated, token_usage = await _translate_llm(
-            body.text, body.source_language, body.target_language, body.context
+            body.text,
+            body.source_language,
+            body.target_language,
+            body.context,
+            body.previous_translations,
+            api_key_override=x_openai_api_key,
+            model=body.model,
         )
     else:
         translated = await _translate_google(
-            body.text, body.source_language, body.target_language
+            body.text, body.source_language, body.target_language,
+            api_key_override=x_google_api_key,
         )
 
     return TranslateResponse(
@@ -193,15 +212,40 @@ async def translate_text(body: TranslateRequest) -> TranslateResponse:
     )
 
 
-@router.get("/languages", response_model=LanguagesResponse)
-async def list_languages() -> LanguagesResponse:
-    """Fetch supported languages from Google Cloud Translation API v2.
+@router.post("/test-key")
+async def test_api_key(
+    x_google_api_key: str = Header("", alias="X-Google-API-Key"),
+    x_openai_api_key: str = Header("", alias="X-OpenAI-API-Key"),
+) -> dict:
+    """Test if the provided API key is valid."""
+    results: dict[str, str] = {}
 
-    Procedure:
-    1. Call Google Languages API with target=en for English names.
-    2. Return list of {code, name} objects.
-    """
-    api_key = _get_google_api_key()
+    if x_google_api_key:
+        try:
+            await _translate_google("hello", "en", "ko", api_key_override=x_google_api_key)
+            results["google"] = "ok"
+        except HTTPException as exc:
+            results["google"] = exc.detail
+
+    if x_openai_api_key:
+        try:
+            await _translate_llm("hello", "en", "ko", api_key_override=x_openai_api_key)
+            results["openai"] = "ok"
+        except HTTPException as exc:
+            results["openai"] = exc.detail
+
+    if not results:
+        raise HTTPException(status_code=400, detail="No API key provided")
+
+    return results
+
+
+@router.get("/languages", response_model=LanguagesResponse)
+async def list_languages(
+    x_google_api_key: str = Header("", alias="X-Google-API-Key"),
+) -> LanguagesResponse:
+    """Fetch supported languages from Google Cloud Translation API v2."""
+    api_key = _get_google_api_key(x_google_api_key)
 
     params = {"key": api_key, "target": "en"}
 

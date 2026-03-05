@@ -13,6 +13,34 @@ import type {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+const API_KEY_STORAGE = {
+  google: "livesub_google_api_key",
+  openai: "livesub_openai_api_key",
+} as const;
+
+export function getStoredApiKey(provider: "google" | "openai"): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(API_KEY_STORAGE[provider]) ?? "";
+}
+
+export function setStoredApiKey(provider: "google" | "openai", key: string): void {
+  if (typeof window === "undefined") return;
+  if (key) {
+    localStorage.setItem(API_KEY_STORAGE[provider], key);
+  } else {
+    localStorage.removeItem(API_KEY_STORAGE[provider]);
+  }
+}
+
+function getApiKeyHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const google = getStoredApiKey("google");
+  const openai = getStoredApiKey("openai");
+  if (google) headers["X-Google-API-Key"] = google;
+  if (openai) headers["X-OpenAI-API-Key"] = openai;
+  return headers;
+}
+
 class ApiRequestError extends Error {
   status: number;
   detail: string;
@@ -32,6 +60,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...getApiKeyHeaders(),
       ...options?.headers,
     },
   });
@@ -110,6 +139,16 @@ export function getLogs(sessionId: string): Promise<LogsResponse> {
 
 export function checkHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/api/health");
+}
+
+export function testApiKey(provider: "google" | "openai", key: string): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  if (provider === "google") headers["X-Google-API-Key"] = key;
+  if (provider === "openai") headers["X-OpenAI-API-Key"] = key;
+  return request<Record<string, string>>("/api/test-key", {
+    method: "POST",
+    headers,
+  });
 }
 
 export { ApiRequestError };
