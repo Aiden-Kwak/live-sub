@@ -1,0 +1,20 @@
+{
+  "pipeline_version": "2.0",
+  "project": "LiveSub",
+  "started_at": "2026-03-05T00:00:00Z",
+  "last_updated": "2026-03-05T00:00:00Z",
+  "current_step": "2.5",
+  "steps": {
+    "0": { "name": "requirements-validation", "status": "completed", "completed_at": "2026-03-05T00:01:00Z" },
+    "1": { "name": "design", "status": "completed", "completed_at": "2026-03-05T00:10:00Z" },
+    "1.5": { "name": "flow-validation", "status": "completed", "completed_at": "2026-03-05T00:15:00Z" },
+    "2": { "name": "planning", "status": "completed", "completed_at": "2026-03-05T00:20:00Z" },
+    "2.5": { "name": "design-commit", "status": "in_progress" },
+    "3": { "name": "implementation", "status": "pending" },
+    "4.5": { "name": "impl-commit", "status": "pending" },
+    "5": { "name": "server-start", "status": "pending" },
+    "6": { "name": "qa", "status": "pending" },
+    "7": { "name": "lessons-merge", "status": "pending" },
+    "8": { "name": "qa-commit-push", "status": "pending" }
+  }
+}
